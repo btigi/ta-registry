@@ -1,0 +1,46 @@
+@page "/admin/settings"
+@model TaRegistry.Web.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<h1>Settings</h1>
+<p class="lede">The signing passphrase stays in configuration. It is not stored here.</p>
+@if (Model.Saved)
+{
+    <p class="banner ok">Saved. Publish the catalogue if the address or the registry id changed.</p>
+}
+@foreach (var problem in Model.Problems)
+{
+    <p class="banner bad">@problem</p>
+}
+<form method="post">
+    <label for="registryId">Registry id</label>
+    <input id="registryId" asp-for="RegistryId" />
+    <label for="name">Name</label>
+    <input id="name" asp-for="Name" />
+    <label for="title">Title</label>
+    <input id="title" asp-for="Title" />
+    <label for="description">Description</label>
+    <textarea id="description" asp-for="Description"></textarea>
+    <label for="author">Author</label>
+    <input id="author" asp-for="Author" />
+    <label for="homepage">Homepage</label>
+    <input id="homepage" asp-for="Homepage" />
+    <label for="baseUrl">Base URL</label>
+    <input id="baseUrl" asp-for="BaseUrl" />
+    <label for="installIdRequired">Install ID</label>
+    <select id="installIdRequired" asp-for="InstallIdRequired">
+        <option value="true">required</option>
+        <option value="false">none</option>
+    </select>
+    <label for="catalogueExpiryDays">Catalogue lifetime, days</label>
+    <input id="catalogueExpiryDays" asp-for="CatalogueExpiryDays" type="number" />
+    <label for="downloadUrlTtlSeconds">Download URL lifetime, seconds</label>
+    <input id="downloadUrlTtlSeconds" asp-for="DownloadUrlTtlSeconds" type="number" />
+    <label for="keysPerHour">Keys per install, per hour</label>
+    <input id="keysPerHour" asp-for="KeysPerHour" type="number" />
+    <label for="challengeAfter">Ask for a person after this many keys</label>
+    <input id="challengeAfter" asp-for="ChallengeAfter" type="number" />
+    <button type="submit">Save</button>
+</form>

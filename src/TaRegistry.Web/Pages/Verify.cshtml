@@ -1,0 +1,32 @@
+@page "/verify"
+@model TaRegistry.Web.Pages.VerifyModel
+@{
+    ViewData["Title"] = "Confirm";
+}
+
+<h1>Confirm you are a person</h1>
+@if (Model.Missing)
+{
+    <p>This page needs a challenge code.</p>
+}
+else if (Model.Unknown)
+{
+    <p>That challenge code is not known.</p>
+}
+else if (Model.Expired)
+{
+    <p>This check has ended. Go back to the game and try the download again.</p>
+}
+else if (Model.Solved)
+{
+    <p class="banner ok">Confirmed. Return to Open Annihilation. The download continues on its own.</p>
+}
+else
+{
+    <p>Code <span class="mono">@Model.Code</span></p>
+    <p class="muted">Expires @Model.Expires</p>
+    <form method="post">
+        <input type="hidden" name="code" value="@Model.Code" />
+        <button type="submit">I am a person</button>
+    </form>
+}

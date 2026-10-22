@@ -1,0 +1,19 @@
+@page "/admin/packages/upload"
+@model TaRegistry.Web.Pages.Admin.Packages.UploadModel
+@{
+    ViewData["Title"] = "Upload";
+}
+
+<h1>Upload a package</h1>
+<p class="lede">A zip the game already accepts: <span class="mono">.oamod</span>, <span class="mono">.oamap</span>, <span class="mono">.oalang</span>, or <span class="mono">.oaexp</span>. Run <span class="mono">oa-tool check</span> before you upload. This registry only reads the manifest.</p>
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <p class="banner bad">@Model.Error</p>
+}
+<form method="post" enctype="multipart/form-data">
+    <label for="package">Package</label>
+    <input id="package" name="package" type="file" required />
+    <label for="badge">Badge PNG, optional</label>
+    <input id="badge" name="badge" type="file" accept="image/png" />
+    <button type="submit">Store</button>
+</form>

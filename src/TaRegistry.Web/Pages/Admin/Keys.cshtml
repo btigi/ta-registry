@@ -1,0 +1,45 @@
+@page "/admin/keys"
+@model TaRegistry.Web.Pages.Admin.KeysModel
+@{
+    ViewData["Title"] = "Keys";
+}
+
+<h1>Signing keys</h1>
+<p class="lede">Add a new key, publish a catalogue the current key still signs, and promote the new key only after players accept it.</p>
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <p class="banner ok">@Model.Message</p>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <p class="banner bad">@Model.Error</p>
+}
+<table>
+    <thead>
+        <tr><th>Id</th><th>Fingerprint</th><th></th></tr>
+    </thead>
+    <tbody>
+    @foreach (var key in Model.Keys)
+    {
+        <tr>
+            <td>
+                <div class="mono">@key.KeyId</div>
+                <div class="muted">@(key.IsSigner ? "signs catalogues" : "published, not signing yet")</div>
+            </td>
+            <td class="mono">@key.Fingerprint</td>
+            <td>
+                @if (!key.IsSigner)
+                {
+                    <form method="post" asp-page-handler="Promote">
+                        <input type="hidden" name="keyId" value="@key.KeyId" />
+                        <button type="submit">Promote</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+<form method="post" asp-page-handler="Rotate">
+    <button type="submit">Add a rotation key</button>
+</form>

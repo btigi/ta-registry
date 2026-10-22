@@ -1,0 +1,23 @@
+@page "/admin/publish"
+@model TaRegistry.Web.Pages.Admin.PublishModel
+@{
+    ViewData["Title"] = "Publish";
+}
+
+<h1>Publish catalogue</h1>
+<p class="lede">Sequence @Model.Sequence. @(Model.Dirty ? "Unpublished changes are waiting." : "The live catalogue matches what is stored.")</p>
+@if (!string.IsNullOrEmpty(Model.Expires))
+{
+    <p class="muted">Current catalogue expires @Model.Expires.</p>
+}
+@if (Model.Published)
+{
+    <p class="banner ok">Published sequence @Model.Sequence.</p>
+}
+@foreach (var problem in Model.Problems)
+{
+    <p class="banner bad">@problem</p>
+}
+<form method="post">
+    <button type="submit">Sign and publish</button>
+</form>

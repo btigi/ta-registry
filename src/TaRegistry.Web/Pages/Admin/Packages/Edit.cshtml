@@ -1,0 +1,50 @@
+@page "/admin/packages/{id:int}"
+@model TaRegistry.Web.Pages.Admin.Packages.EditModel
+@{
+    ViewData["Title"] = Model.PackageId;
+}
+
+<h1>@Model.Name</h1>
+<p class="muted mono">@Model.Kind · @Model.PackageId · release @Model.Release · @Model.Sha256</p>
+@if (TempData["Message"] is string message)
+{
+    <p class="banner ok">@message</p>
+}
+@if (TempData["Warnings"] is string warnings)
+{
+    <p class="banner warn">@warnings</p>
+}
+@foreach (var problem in Model.Problems)
+{
+    <p class="banner bad">@problem</p>
+}
+
+<form method="post">
+    <label for="name">Name</label>
+    <input id="name" asp-for="Name" />
+    <label for="version">Version</label>
+    <input id="version" asp-for="Version" />
+    <label for="revision">Revision</label>
+    <input id="revision" asp-for="Revision" type="number" />
+    <label for="summary">Summary</label>
+    <input id="summary" asp-for="Summary" />
+    <label for="author">Author</label>
+    <input id="author" asp-for="Author" />
+    <label for="publisher">Publisher</label>
+    <input id="publisher" asp-for="Publisher" />
+    <label for="homepage">Homepage</label>
+    <input id="homepage" asp-for="Homepage" />
+    <label for="publishedDay">Published day</label>
+    <input id="publishedDay" asp-for="PublishedDay" placeholder="YYYY-MM-DD" />
+    <label for="tags">Tags</label>
+    <input id="tags" asp-for="Tags" placeholder="balance, campaign" />
+    <label for="notes">Notes</label>
+    <textarea id="notes" asp-for="Notes"></textarea>
+    <label for="detailsJson">Kind-specific JSON (maps, extends, hacks)</label>
+    <textarea id="detailsJson" asp-for="DetailsJson"></textarea>
+    <button type="submit">Save</button>
+</form>
+
+<form method="post" asp-page-handler="Delete" onsubmit="return confirm('Remove this package from the registry?');">
+    <button class="danger" type="submit">Delete</button>
+</form>

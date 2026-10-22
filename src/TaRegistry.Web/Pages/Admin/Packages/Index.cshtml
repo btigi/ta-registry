@@ -1,0 +1,41 @@
+@page "/admin/packages"
+@model TaRegistry.Web.Pages.Admin.Packages.IndexModel
+@{
+    ViewData["Title"] = "Packages";
+}
+
+<h1>Packages</h1>
+<p class="row">
+    <a class="button" asp-page="/Admin/Packages/Upload">Upload</a>
+    <a asp-page="/Admin/Packages/Index">All</a>
+    <a asp-page="/Admin/Packages/Index" asp-route-kind="oamod">Mods</a>
+    <a asp-page="/Admin/Packages/Index" asp-route-kind="oamap">Maps</a>
+    <a asp-page="/Admin/Packages/Index" asp-route-kind="oalang">Languages</a>
+    <a asp-page="/Admin/Packages/Index" asp-route-kind="expansion">Expansions</a>
+</p>
+
+@if (Model.Packages.Count == 0)
+{
+    <p class="muted">Nothing here yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr><th>Package</th><th>Release</th><th>Catalogue</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var package in Model.Packages)
+        {
+            <tr>
+                <td>
+                    <a asp-page="/Admin/Packages/Edit" asp-route-id="@package.Id">@package.Name</a>
+                    <div class="muted mono">@package.Kind · @package.PackageId</div>
+                </td>
+                <td>@package.Release</td>
+                <td>@(package.InCatalogue ? "published" : "draft")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

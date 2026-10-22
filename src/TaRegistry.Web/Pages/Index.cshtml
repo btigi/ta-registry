@@ -1,0 +1,21 @@
+@page "/"
+@model TaRegistry.Web.Pages.IndexModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<h1>@Model.Name</h1>
+<p class="lede">@(Model.Title ?? "Open Annihilation package registry")</p>
+
+<div class="panel">
+    <p>Catalogue <a href="/v1/catalogue.json">/v1/catalogue.json</a></p>
+    <p>Descriptor <a href="/registry.yaml">/registry.yaml</a> — save this as a <span class="mono">.oareg</span> file and add it in the Library.</p>
+    <p>Signing key <span class="mono">@Model.KeyId</span></p>
+    <p>Fingerprint <span class="mono">@Model.Fingerprint</span></p>
+    <p class="muted">Sequence @Model.Sequence@(Model.Dirty ? " · catalogue has unpublished changes" : "")</p>
+</div>
+
+@if (!(User.Identity?.IsAuthenticated ?? false))
+{
+    <p><a asp-page="/Admin/Login">Admin</a></p>
+}
