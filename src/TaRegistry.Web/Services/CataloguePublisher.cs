@@ -21,6 +21,7 @@ public sealed class CataloguePublisher(
         var state = await db.CatalogueStates.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
         var packages = await LoadDraftsAsync(cancellationToken);
         var problems = packages.SelectMany(CatalogueRules.Problems).ToList();
+        problems.AddRange(CatalogueRules.DuplicateIds(packages));
         var next = state?.Json is null ? 1 : state.Sequence + 1;
         return new PublishResult(problems.Count == 0, next, problems);
     }
@@ -35,6 +36,7 @@ public sealed class CataloguePublisher(
         var packages = await db.Packages.OrderBy(p => p.Kind).ThenBy(p => p.PackageId).ToListAsync(cancellationToken);
         var drafts = packages.Select(PackageMaps.ToDraft).ToList();
         var problems = drafts.SelectMany(CatalogueRules.Problems).ToList();
+        problems.AddRange(CatalogueRules.DuplicateIds(drafts));
         var descriptorProblems = CatalogueRules.DescriptorProblems(DescriptorService.Model(settings, keyRows));
         problems.AddRange(descriptorProblems);
         if (problems.Count > 0)

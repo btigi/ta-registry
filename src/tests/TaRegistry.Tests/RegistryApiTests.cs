@@ -256,6 +256,90 @@ public sealed class RegistryApiTests(RegistryApp app)
         Assert.Contains("/admin/login", response.Headers.Location?.OriginalString, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Mutator_kind_is_accepted_for_download()
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var packages = scope.ServiceProvider.GetRequiredService<PackageAdminService>();
+        var publisher = scope.ServiceProvider.GetRequiredService<CataloguePublisher>();
+
+        await using var clash = MutatorZip("example-mod", "Example Mod");
+        var refused = await packages.UploadAsync(clash, "example-mod.oamut", null, CancellationToken.None);
+        Assert.False(refused.Ok);
+        Assert.Contains("already used", refused.Message, StringComparison.Ordinal);
+
+        await using var zip = MutatorZip("steady-hands", "Steady Hands");
+        var uploaded = await packages.UploadAsync(zip, "steady-hands.oamut", null, CancellationToken.None);
+        Assert.True(uploaded.Ok, uploaded.Message);
+
+        var published = await publisher.PublishAsync(CancellationToken.None);
+        Assert.True(published.Ok, string.Join("; ", published.Problems));
+
+        await using var read = app.Services.CreateAsyncScope();
+        var db = read.ServiceProvider.GetRequiredService<RegistryDb>();
+        var row = await db.Packages.SingleAsync(p => p.PackageId == "steady-hands");
+        Assert.False(string.IsNullOrEmpty(row.BadgeSha));
+
+        var client = app.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/v1/downloads", new
+        {
+            install = Guid.NewGuid().ToString("D"),
+            package = "steady-hands",
+            kind = "oamut",
+            release = row.Release,
+            sha256 = row.Sha256,
+            engine = "0.8.0",
+            platform = "windows",
+            arch = "x64",
+            language = "en",
+            reason = "install"
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var catalogue = await client.GetFromJsonAsync<JsonElement>("/v1/catalogue.json");
+        var entry = catalogue.GetProperty("packages").EnumerateArray().Single(p => p.GetProperty("id").GetString() == "steady-hands");
+        Assert.Equal("oamut", entry.GetProperty("kind").GetString());
+        Assert.EndsWith(".oamut", entry.GetProperty("file").GetString());
+        var file = await client.GetAsync(entry.GetProperty("file").GetString());
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+    }
+
+    private static MemoryStream MutatorZip(string id, string name)
+    {
+        var stream = new MemoryStream();
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = zip.CreateEntry("oamut.yaml");
+            using (var writer = new StreamWriter(entry.Open()))
+            {
+                writer.Write($$"""
+                    oamut: 1
+                    id: {{id}}
+                    name: {{name}}
+                    version: "1.2"
+                    description: Steadier aim.
+                    author: {name: Ada}
+                    tags: [aim]
+                    icon: icon.png
+                    options:
+                      sway:
+                        label: Sway
+                        type: number
+                        min: 0
+                        max: 2
+                        step: 0.5
+                        default: 1
+                    """);
+            }
+
+            using var icon = zip.CreateEntry("icon.png").Open();
+            icon.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        }
+
+        stream.Position = 0;
+        return stream;
+    }
+
     private async Task<HttpResponseMessage> PostDownload(HttpClient client, string install, int release = 1, string? package = null)
     {
         return await client.PostAsJsonAsync("/api/v1/downloads", new

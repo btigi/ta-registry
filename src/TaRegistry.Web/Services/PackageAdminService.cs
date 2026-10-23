@@ -33,7 +33,7 @@ public sealed class PackageAdminService(RegistryDb db, FileBlobStore blobs)
     {
         var extension = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
         if (!PackageKinds.TryFromExtension(extension, out var kind))
-            return new UploadResult(false, "Upload a .oamod, .oamap, .oalang, or .oaexp file.", null, []);
+            return new UploadResult(false, "Upload a .oamod, .oamap, .oalang, .oaexp, or .oamut file.", null, []);
 
         string sha;
         try
@@ -78,8 +78,22 @@ public sealed class PackageAdminService(RegistryDb db, FileBlobStore blobs)
         var warnings = inspection.Warnings.ToList();
         if (inspection.MapPreviews.Count > 0)
             detailsJson = await AttachMapPreviewsAsync(path, detailsJson, inspection.MapPreviews, warnings, cancellationToken);
+        if (badgeSha is null && inspection.IconPath is not null)
+            badgeSha = await AttachIconAsync(path, inspection.IconPath, warnings, cancellationToken);
 
         var existing = await db.Packages.SingleOrDefaultAsync(p => p.Kind == inspection.Kind && p.PackageId == inspection.PackageId, cancellationToken);
+        var taken = await db.Packages
+            .Where(p => p.Kind != inspection.Kind)
+            .Select(p => p.PackageId)
+            .ToListAsync(cancellationToken);
+        if (taken.Any(id => string.Equals(id, inspection.PackageId, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!await db.Packages.AnyAsync(p => p.Sha256 == sha, cancellationToken))
+                blobs.DeleteIfUnreferenced(path);
+            if (badgeSha is not null)
+                await DeletePictureIfUnusedAsync(badgeSha, cancellationToken);
+            return new UploadResult(false, $"Package id '{inspection.PackageId}' is already used by another kind.", null, warnings);
+        }
         var release = existing is null ? 1 : existing.Sha256 == inspection.Sha256 ? existing.Release : existing.Release + 1;
         var previousSha = existing?.Sha256;
         var previousBadge = existing?.BadgeSha;
@@ -156,6 +170,28 @@ public sealed class PackageAdminService(RegistryDb db, FileBlobStore blobs)
         }
 
         return details.ToJsonString();
+    }
+
+    private async Task<string?> AttachIconAsync(string packagePath, string iconPath, List<string> warnings, CancellationToken cancellationToken)
+    {
+        using var zip = ZipFile.OpenRead(packagePath);
+        var entry = zip.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/') == iconPath);
+        if (entry is null)
+        {
+            warnings.Add($"Icon {iconPath} is not in the archive.");
+            return null;
+        }
+
+        try
+        {
+            await using var stream = entry.Open();
+            return await blobs.SavePictureAsync(stream, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            warnings.Add($"Icon {iconPath}: {ex.Message}");
+            return null;
+        }
     }
 
     public async Task<IReadOnlyList<string>> UpdateAsync(PackageEntity entity, PackageEdit edit, CancellationToken cancellationToken)

@@ -24,6 +24,7 @@ public sealed class PackageInspection
     public IReadOnlyList<string> Tags { get; init; } = [];
     public string? DetailsJson { get; init; }
     public IReadOnlyList<MapPreview> MapPreviews { get; init; } = [];
+    public string? IconPath { get; init; }
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
@@ -128,15 +129,25 @@ public static class PackageInspector
 
         var details = new JsonObject();
         var mapPreviews = new List<MapPreview>();
-        Copy(root, details, "requires", "sim_hash", "hacks", "coverage", "english_name", "word", "locales", "fallbacks", "needs", "extends");
-        if (kind == PackageKinds.Map && root["maps"] is JsonArray manifestMaps)
-            details["maps"] = CatalogueMaps(manifestMaps, id.Trim(), mapPreviews);
+        string? iconPath = null;
+        if (kind == PackageKinds.Mutator)
+            iconPath = ApplyMutator(root, details, warnings);
         else
-            Copy(root, details, "maps");
+        {
+            Copy(root, details, "requires", "sim_hash", "hacks", "coverage", "english_name", "word", "locales", "fallbacks", "needs", "extends");
+            if (kind == PackageKinds.Map && root["maps"] is JsonArray manifestMaps)
+                details["maps"] = CatalogueMaps(manifestMaps, id.Trim(), mapPreviews);
+            else
+                Copy(root, details, "maps");
+        }
 
         var author = Scalar(root, "author");
         if (author is null && root["author"] is JsonObject authorObject)
             author = Scalar(authorObject, "name");
+
+        var summary = kind == PackageKinds.Mutator
+            ? FirstLine(Scalar(root, "description") ?? Scalar(root, "summary"))
+            : Scalar(root, "summary") ?? Scalar(root, "description");
 
         return new PackageInspection
         {
@@ -148,14 +159,168 @@ public static class PackageInspector
             Name = name.Trim(),
             Version = Scalar(root, "version"),
             Revision = revision,
-            Summary = Scalar(root, "summary") ?? Scalar(root, "description"),
+            Summary = summary,
             Author = author,
             Homepage = Scalar(root, "homepage"),
             Tags = tags,
             DetailsJson = details.Count == 0 ? null : details.ToJsonString(),
             MapPreviews = mapPreviews,
+            IconPath = iconPath,
             Warnings = warnings
         };
+    }
+
+    private static readonly string[] MutatorLayers = ["files", "units", "weapons", "features", "sides", "tables", "menus", "maps", "hacks"];
+
+    private static readonly string[] OptionFields = ["label", "type", "default", "values", "labels", "min", "max", "step"];
+
+    private static string? ApplyMutator(JsonObject root, JsonObject details, List<string> warnings)
+    {
+        if (root["requires"] is JsonObject requires)
+        {
+            var shaped = new JsonObject();
+            if (Scalar(requires, "engine") is string engine)
+                shaped["engine"] = engine;
+            if (requires["mutators"] is JsonArray mutators)
+            {
+                var conditions = Conditions(mutators);
+                if (conditions.Count > 0)
+                    shaped["mutators"] = conditions;
+            }
+
+            if (shaped.Count > 0)
+                details["requires"] = shaped;
+        }
+
+        if (root["works-with"] is JsonArray works)
+        {
+            var kept = new JsonArray();
+            foreach (var item in works)
+            {
+                if (item is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text))
+                    kept.Add(text.Trim());
+            }
+
+            if (kept.Count > 0)
+                details["works_with"] = kept;
+        }
+
+        if (root["conflicts-with"] is JsonArray conflicts)
+        {
+            var conditions = Conditions(conflicts);
+            if (conditions.Count > 0)
+                details["conflicts_with"] = conditions;
+        }
+
+        if (root["layers"] is JsonArray layers)
+        {
+            var kept = new JsonArray();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in layers)
+            {
+                if (item is JsonValue value && value.TryGetValue<string>(out var text)
+                    && MutatorLayers.Contains(text) && seen.Add(text))
+                    kept.Add(text);
+            }
+
+            if (kept.Count > 0)
+                details["layers"] = kept;
+        }
+
+        if (Scalar(root, "clashes") is string clashes)
+            details["clashes"] = clashes;
+
+        if (root["options"] is JsonObject options)
+        {
+            var array = new JsonArray();
+            foreach (var (optionId, body) in options)
+            {
+                if (body is not JsonObject fields)
+                    continue;
+
+                var type = Scalar(fields, "type");
+                if (type is not ("toggle" or "choice" or "number"))
+                {
+                    warnings.Add($"Option '{optionId}' has an unknown type and was left out.");
+                    continue;
+                }
+
+                var option = new JsonObject { ["id"] = optionId };
+                Copy(fields, option, OptionFields);
+                array.Add(option);
+            }
+
+            if (array.Count > 0)
+                details["options"] = array;
+        }
+
+        var icon = Scalar(root, "icon");
+        if (icon is not null && icon.Replace('\\', '/').EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            return icon.Replace('\\', '/');
+
+        return null;
+    }
+
+    private static JsonArray Conditions(JsonArray source)
+    {
+        var conditions = new JsonArray();
+        foreach (var item in source)
+        {
+            string? text = null;
+            if (item is JsonValue value && value.TryGetValue<string>(out var raw))
+                text = raw;
+            else if (item is JsonObject obj && Scalar(obj, "id") is string id)
+            {
+                var version = Scalar(obj, "version");
+                text = version is null ? id : id + " " + version;
+            }
+
+            if (text is null || !TryCondition(text, out var conditionId, out var range))
+                continue;
+
+            var condition = new JsonObject { ["id"] = conditionId };
+            if (range is not null)
+                condition["version"] = range;
+            conditions.Add(condition);
+        }
+
+        return conditions;
+    }
+
+    private static bool TryCondition(string text, out string id, out string? version)
+    {
+        text = text.Trim();
+        var space = text.IndexOf(' ');
+        if (space < 0)
+        {
+            id = text;
+            version = null;
+            return id.Length > 0;
+        }
+
+        id = text[..space];
+        version = text[(space + 1)..].Trim();
+        return id.Length > 0 && version.Length > 0;
+    }
+
+    private static string? FirstLine(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return null;
+
+        var line = text.Split('\n', 2)[0].TrimEnd('\r').Trim();
+        if (line.Length == 0)
+            return null;
+
+        var bytes = Encoding.UTF8.GetBytes(line);
+        if (bytes.Length <= 200)
+            return line;
+
+        var count = 200;
+        while (count > 0 && (bytes[count] & 0xC0) == 0x80)
+            count--;
+
+        return Encoding.UTF8.GetString(bytes, 0, count);
     }
 
     private static JsonArray CatalogueMaps(JsonArray manifestMaps, string packageId, List<MapPreview> previews)

@@ -100,6 +100,11 @@ public static class CatalogueWriter
         WriteExtra(writer, extra, "fallbacks");
         WriteExtra(writer, extra, "needs");
         WriteExtra(writer, extra, "extends");
+        WriteExtra(writer, extra, "works_with");
+        WriteExtra(writer, extra, "conflicts_with");
+        WriteExtra(writer, extra, "layers");
+        WriteExtra(writer, extra, "clashes");
+        WriteExtra(writer, extra, "options");
         writer.WriteEndObject();
     }
 

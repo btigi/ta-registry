@@ -23,8 +23,8 @@ Packages, pictures, the SQLite database, and the sealed key live under `data/` n
 
 ## Publish a package
 
-1. Sign in and upload a `.oamod`, `.oamap`, `.oalang`, or `.oaexp`. Check the file with `oa-tool check` first (oa-tool is shipped with OA). This registry reads the manifest and stores the zip; it does not repeat the engine's full install checks.
-2. Open the package and fill anything the catalogue still needs (map packs need a `maps` array, mods need `version` and `revision`, expansions need `extends`).
+1. Sign in and upload a `.oamod`, `.oamap`, `.oalang`, `.oaexp`, or `.oamut`. Check the file with `oa-tool check` first (oa-tool is shipped with OA). This registry reads the manifest and stores the zip; it does not repeat the engine's full install checks.
+2. Open the package and fill anything the catalogue still needs (map packs need a `maps` array, mods need `version` and `revision`, expansions need `extends`, mutators need a mutator `version`).
 3. Publish. That writes a new signed `catalogue.json`. The sequence only moves forward.
 
 Save `http://127.0.0.1:5080/registry.yaml` and add it from the Open Annihilation registries folder.
@@ -38,7 +38,7 @@ To rotate a key, add a rotation key, publish while the old key still signs, wait
 | GET | `/registry.yaml` |
 | GET | `/v1/catalogue.json` |
 | GET | `/v1/catalogue.json.sig` |
-| GET | `/v1/p/{sha256}.{oamod\|oamap\|oalang\|oaexp}` |
+| GET | `/v1/p/{sha256}.{oamod\|oamap\|oalang\|oaexp\|oamut}` |
 | GET | `/v1/i/{sha256}.png` |
 | POST | `/api/v1/downloads` |
 | POST | `/api/v1/downloads/{id}/result` |

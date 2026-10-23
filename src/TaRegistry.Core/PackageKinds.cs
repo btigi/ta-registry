@@ -6,11 +6,12 @@ public static class PackageKinds
     public const string Map = "oamap";
     public const string Language = "oalang";
     public const string Expansion = "expansion";
+    public const string Mutator = "oamut";
 
-    public static readonly string[] All = [Mod, Map, Language, Expansion];
+    public static readonly string[] All = [Mod, Map, Language, Expansion, Mutator];
 
     public static bool IsKnown(string kind) =>
-        kind is Mod or Map or Language or Expansion;
+        kind is Mod or Map or Language or Expansion or Mutator;
 
     public static string Extension(string kind) =>
         kind == Expansion ? "oaexp" : kind;
@@ -31,6 +32,9 @@ public static class PackageKinds
             case "oaexp":
                 kind = Expansion;
                 return true;
+            case "oamut":
+                kind = Mutator;
+                return true;
             default:
                 kind = "";
                 return false;
@@ -43,6 +47,7 @@ public static class PackageKinds
         Map => "oamap.yaml",
         Language => "language.yaml",
         Expansion => "oaexp.yaml",
+        Mutator => "oamut.yaml",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 
