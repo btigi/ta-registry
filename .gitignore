@@ -1,6 +1,7 @@
 bin/
 obj/
-data/
+/data/
+src/data/
 .vs/
 *.user
 TestResults/
